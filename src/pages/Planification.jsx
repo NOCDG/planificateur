@@ -1,114 +1,99 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState } from "react";
+import usePlanningData from "../hooks/usePlanningData";
+import PromoList from "../components/PromotionList";
+import PlanningTable from "../components/PlanningTable";
+import axios from "axios";
 
-const Planning = () => {
-  const [promos, setPromos] = useState([]);
-  const [salles, setSalles] = useState([]);
-  const [semaines, setSemaines] = useState([]);
-  const [occupations, setOccupations] = useState([]);
+const Planification = () => {
+  const { promos, salles, semaines, occupations, fetchData } = usePlanningData();
+  const [draggedPromo, setDraggedPromo] = useState(null);
+  const [draggedOccupation, setDraggedOccupation] = useState(null);
 
-  // Charger les données initiales
-  useEffect(() => {
-    fetchPromos();
-    fetchSalles();
-    fetchSemaines();
-    fetchOccupations();
-  }, []);
-
-  const fetchPromos = async () => {
-    const response = await axios.get('http://localhost:5000/promos');
-    setPromos(response.data);
+  // Fonction pour calculer le total des heures d'une promo
+  const calculateTotalHours = (nom_promo) => {
+    const promoOccupations = occupations.filter((o) => o.nom_promo === nom_promo);
+    
+    console.log(`Calcul des heures pour ${nom_promo} :`, promoOccupations); // ✅ Vérification
+  
+    return promoOccupations.reduce((total, o) => total + (o.nbHeures || 0), 0);
   };
 
-  const fetchSalles = async () => {
-    const response = await axios.get('http://localhost:5000/salles');
-    setSalles(response.data);
+  // Détection du début du drag d'une promotion
+  const handleDragStartPromo = (promo) => {
+    setDraggedPromo(promo);
   };
 
-  const fetchSemaines = async () => {
-    const response = await axios.get('http://localhost:5000/semaines');
-    setSemaines(response.data);
+  // Détection du début du drag d'une occupation existante
+  const handleDragStartOccupation = (occupation) => {
+    setDraggedOccupation(occupation);
   };
 
-  const fetchOccupations = async () => {
-    const response = await axios.get('http://localhost:5000/occupations');
-    setOccupations(response.data);
-  };
+  // Déposer une promotion sur une salle et une semaine
+  const handleDrop = async (semaineId, salle) => {
+    if (draggedPromo) {
+      // Vérification des conflits de salle
+      const existingOccupation = occupations.find(
+        (o) => o.semaine_id === semaineId && o.num_salle === salle.num_salle
+      );
 
-  // Gérer le drag and drop
-  const handleDrop = async (semaineId, salleId) => {
-    const promo = promos.find(p => p.isDragging);
-    if (promo) {
+      if (existingOccupation) {
+        alert(`❌ La salle ${salle.num_salle} est déjà occupée par ${existingOccupation.nom_promo} !`);
+        return;
+      }
+
       try {
-        await axios.post('http://localhost:5000/occupations', {
-          nom_promo: promo.nom,
-          num_salle: salleId,
-          batiment: 'BâtimentA', // À adapter
+        await axios.post("http://localhost:5000/occupations", {
+          nom_promo: draggedPromo.nom,
+          num_salle: salle.num_salle,
           semaine_id: semaineId,
         });
-        fetchOccupations();
+
+        fetchData(); // Recharge les données après ajout
+        setDraggedPromo(null); // Réinitialisation de la promo déplacée
       } catch (error) {
         console.error("Erreur lors de l'ajout de l'occupation:", error);
       }
     }
   };
 
-  // Calculer le total des heures par promo
-  const calculateTotalHours = (nom_promo) => {
-    const promoOccupations = occupations.filter(o => o.nom_promo === nom_promo);
-    return promoOccupations.reduce((total, o) => total + o.nbHeures, 0);
+  // Supprimer une occupation existante via le drag vers la corbeille
+  const handleDropDelete = async () => {
+    if (draggedOccupation) {
+      try {
+        await axios.delete(`http://localhost:5000/occupations/${draggedOccupation.id}`);
+        fetchData(); // Mise à jour des données après suppression
+        setDraggedOccupation(null);
+      } catch (error) {
+        console.error("Erreur lors de la suppression de l'occupation:", error);
+      }
+    }
   };
 
   return (
     <div className="planning-container">
-      <div className="promos-list">
-        <h3>Promotions</h3>
-        {promos.map(promo => (
-          <div
-            key={promo.nom}
-            className="promo-item"
-            draggable
-            onDragStart={() => setPromos(promos.map(p => ({ ...p, isDragging: p.nom === promo.nom })))}
-          >
-            {promo.nom} - Total heures: {calculateTotalHours(promo.nom)}
-          </div>
-        ))}
+      {/* Zone de suppression des occupations (corbeille) */}
+      <div 
+        className="trash-bin"
+        onDrop={handleDropDelete}
+        onDragOver={(e) => e.preventDefault()}
+      >
+        🗑️ Glissez ici pour supprimer
       </div>
-      <div className="planning-grid">
-        <table>
-          <thead>
-            <tr>
-              <th>Semaine</th>
-              {salles.map(salle => (
-                <th key={`${salle.num_salle}-${salle.batiment}`}>
-                  {salle.num_salle} ({salle.batiment})
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {semaines.map(semaine => (
-              <tr key={semaine.id}>
-                <td>Semaine {semaine.numero} ({semaine.annee})</td>
-                {salles.map(salle => (
-                  <td
-                    key={`${semaine.id}-${salle.num_salle}-${salle.batiment}`}
-                    onDrop={() => handleDrop(semaine.id, salle.num_salle)}
-                    onDragOver={(e) => e.preventDefault()}
-                  >
-                    {occupations
-                      .filter(o => o.semaine_id === semaine.id && o.num_salle === salle.num_salle)
-                      .map(o => o.nom_promo)
-                      .join(', ')}
-                  </td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+
+      {/* Liste des promotions */}
+      <PromoList promos={promos} handleDragStart={handleDragStartPromo} calculateTotalHours={calculateTotalHours} />
+
+      {/* Tableau de planning */}
+      <PlanningTable 
+        semaines={semaines} 
+        salles={salles} 
+        occupations={occupations} 
+        fetchData={fetchData} 
+        handleDragStart={handleDragStartOccupation} 
+        handleDrop={handleDrop} 
+      />
     </div>
   );
 };
 
-export default Planning;
+export default Planification;

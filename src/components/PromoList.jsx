@@ -11,7 +11,7 @@ const PromoList = ({ promos, handleDragStart, calculateTotalHours }) => {
           draggable
           onDragStart={() => handleDragStart(promo)}
         >
-          {promo.nom} - {calculateTotalHours(promo.nom)} h {/* ✅ Affichage corrigé */}
+          {promo.nom} - Total heures: {calculateTotalHours(promo.nom)}
         </div>
       ))}
     </div>
