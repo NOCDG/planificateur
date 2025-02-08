@@ -1,28 +1,27 @@
-const pool = require('../config/db');
+const pool = require('../config/db'); // Connexion à la BDD
 
-const getOccupations = async () => {
-    const res = await pool.query('SELECT * FROM Occupation');
-    return res.rows;
-};
-
+// Ajouter une occupation
 const addOccupation = async (nom_promo, num_salle, batiment, semaine_id) => {
-    const res = await pool.query(
-        'INSERT INTO Occupation (nom_promo, num_salle, batiment, semaine_id) VALUES ($1, $2, $3, $4) RETURNING *',
-        [nom_promo, num_salle, batiment, semaine_id]
-    );
-    return res.rows[0];
+  const query = `
+    INSERT INTO occupation (nom_promo, num_salle, batiment, semaine_id)
+    VALUES ($1, $2, $3, $4) RETURNING *;
+  `;
+  const values = [nom_promo, num_salle, batiment, semaine_id];
+  const { rows } = await pool.query(query, values);
+  return rows[0];
 };
 
+// Récupérer toutes les occupations
+const getOccupations = async () => {
+  const query = `SELECT * FROM occupation;`;
+  const { rows } = await pool.query(query);
+  return rows;
+};
+
+// Supprimer une occupation
 const deleteOccupation = async (id) => {
-    await pool.query('DELETE FROM Occupation WHERE id = $1', [id]);
+  const query = `DELETE FROM occupation WHERE id = $1;`;
+  await pool.query(query, [id]);
 };
 
-const updateOccupation = async (id, nom_promo, num_salle, batiment, semaine_id) => {
-    const res = await pool.query(
-        'UPDATE Occupation SET nom_promo = $2, num_salle = $3, batiment = $4, semaine_id = $5 WHERE id = $1 RETURNING *',
-        [id, nom_promo, num_salle, batiment, semaine_id]
-    );
-    return res.rows[0];
-};
-
-module.exports = { getOccupations, addOccupation, deleteOccupation, updateOccupation };
+module.exports = { addOccupation, getOccupations, deleteOccupation };

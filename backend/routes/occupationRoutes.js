@@ -1,11 +1,9 @@
 const express = require('express');
-const { getAllOccupations, createOccupation, removeOccupation, modifyOccupation } = require('../controllers/occupationController');
-
 const router = express.Router();
+const occupationController = require('../controllers/occupationController');
 
-router.get('/', getAllOccupations);
-router.post('/', createOccupation);
-router.delete('/:id', removeOccupation);
-router.put('/:id', modifyOccupation);
+router.post('/', occupationController.createOccupation);
+router.get('/', occupationController.getAllOccupations);
+router.delete('/:id', occupationController.deleteOccupation);
 
 module.exports = router;
